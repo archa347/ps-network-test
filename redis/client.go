@@ -14,5 +14,7 @@ func RedisClient(config config.Config) *redis.Client {
 		os.Exit(1)
 	}
 
+	opts.TLSConfig.InsecureSkipVerify = true
+
 	return redis.NewClient(opts)
 }
