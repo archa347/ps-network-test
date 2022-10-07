@@ -1,6 +1,6 @@
 module github.com/archa347/ps-network-test
 
-// +heroku install ./cmd/... ./bin
+// +heroku install ./cmd/...
 
 // +heroku goVersion go1.17
 go 1.17
