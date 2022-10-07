@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	Port             string
-	DynoID           string
-	RedisURL         string
-	LivenessInterval int
+	Port               string
+	DynoID             string
+	RedisURL           string
+	LivenessIntervalMS int
+	LivenessTimeoutMS  int
 }
 
 func New() Config {
@@ -39,14 +40,20 @@ func New() Config {
 		log.Error("REDIS_URL not found")
 		os.Exit(1)
 	}
-	intvstring, set := os.LookupEnv("LIVENESS_INTERVAL")
+	intvstring, set := os.LookupEnv("LIVENESS_INTERVAL_MS")
 	if !set {
 		intvstring = "10000"
 	}
-	cfg.LivenessInterval, err = strconv.Atoi(intvstring)
+	cfg.LivenessIntervalMS, err = strconv.Atoi(intvstring)
 	if err != nil {
 		log.Error("Invalid LIVENESS_INTERVAL.  Must be integer")
 		os.Exit(1)
+	}
+
+	timeoutstr, _ := os.LookupEnv("LIVENESS_TIMEOUT_MS")
+	cfg.LivenessTimeoutMS, err = strconv.Atoi(timeoutstr)
+	if err != nil {
+		cfg.LivenessTimeoutMS = 3 * cfg.LivenessIntervalMS
 	}
 
 	return cfg
