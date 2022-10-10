@@ -36,7 +36,7 @@ func NewChecker(cfg config.Config, red *redis.Client) *Checker {
 func (c *Checker) CheckPrivate(ctx context.Context) {
 	dynos := c.getDynos(ctx)
 	for _, dyno := range dynos {
-		c.CheckURL(ctx, fmt.Sprintf("http://%v/private", dyno), "private")
+		c.CheckURL(ctx, fmt.Sprintf("http://%v:7777/private", dyno), "private")
 	}
 }
 

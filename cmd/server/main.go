@@ -6,6 +6,7 @@ import (
 	"github.com/archa347/ps-network-test/redis"
 	"github.com/gin-gonic/gin"
 	_ "github.com/heroku/x/hmetrics/onload"
+	"os"
 )
 
 func main() {
@@ -35,5 +36,9 @@ func main() {
 
 	livenessReporter.Start()
 	livenessChecker.Start()
-	router.Run(":" + cfg.Port)
+	go router.Run(":" + cfg.Port)
+	privateIP := os.Getenv("HEROKU_PRIVATE_IP")
+	if privateIP != "" {
+		go router.Run(privateIP + ":7777")
+	}
 }

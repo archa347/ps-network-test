@@ -61,10 +61,7 @@ func New() Config {
 		cfg.LivenessTimeoutMS = 3 * cfg.LivenessIntervalMS
 	}
 
-	cfg.AppName, set = os.LookupEnv("HEROKU_DNS_APP_NAME")
-	if !set {
-		cfg.AppName = fmt.Sprintf("localhost:%v", cfg.Port)
-	}
+	cfg.AppName = fmt.Sprintf("ps-network-test")
 
 	cfg.DMZCheckCron, set = os.LookupEnv("DMZ_CHECK_CRON")
 	if !set {
