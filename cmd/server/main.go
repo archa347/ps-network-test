@@ -14,6 +14,7 @@ func main() {
 	redisClient := redis.RedisClient(cfg)
 
 	livenessReporter := liveness.NewReporter(cfg, redisClient)
+	livenessChecker := liveness.NewChecker(cfg, redisClient)
 
 	router := gin.New()
 	router.Use(gin.Logger())
@@ -24,6 +25,15 @@ func main() {
 		c.String(200, "Hello from %v", cfg.DynoID)
 	})
 
+	router.GET("/private", func(c *gin.Context) {
+		livenessReporter.ReportPrivate(c)
+	})
+
+	router.GET("/dmz", func(c *gin.Context) {
+		livenessReporter.ReportDMZ(c)
+	})
+
 	livenessReporter.Start()
+	livenessChecker.Start()
 	router.Run(":" + cfg.Port)
 }

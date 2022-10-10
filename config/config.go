@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"os"
@@ -13,6 +14,10 @@ type Config struct {
 	RedisURL           string
 	LivenessIntervalMS int
 	LivenessTimeoutMS  int
+	AppName            string
+	PrivateCheckCron   string
+	DMZCheckCron       string
+	NATCheckCron       string
 }
 
 func New() Config {
@@ -54,6 +59,26 @@ func New() Config {
 	cfg.LivenessTimeoutMS, err = strconv.Atoi(timeoutstr)
 	if err != nil {
 		cfg.LivenessTimeoutMS = 3 * cfg.LivenessIntervalMS
+	}
+
+	cfg.AppName, set = os.LookupEnv("HEROKU_DNS_APP_NAME")
+	if !set {
+		cfg.AppName = fmt.Sprintf("localhost:%v", cfg.Port)
+	}
+
+	cfg.DMZCheckCron, set = os.LookupEnv("DMZ_CHECK_CRON")
+	if !set {
+		cfg.DMZCheckCron = "0/15 * * * * *"
+	}
+
+	cfg.NATCheckCron, set = os.LookupEnv("NAT_CHECK_CRON")
+	if !set {
+		cfg.NATCheckCron = "0/15 * * * * *"
+	}
+
+	cfg.PrivateCheckCron, set = os.LookupEnv("NAT_CHECK_CRON")
+	if !set {
+		cfg.PrivateCheckCron = "0 * * * * *"
 	}
 
 	return cfg

@@ -25,6 +25,28 @@ func NewReporter(cfg config.Config, client *redis.Client) *Reporter {
 	}
 }
 
+func (l *Reporter) ReportDMZ(ctx context.Context) {
+	_, err := l.redis.Set(ctx, l.dmzReportKey(), fmt.Sprintf("healthy:%v", timeTag()), 0).Result()
+	if err != nil {
+		log.WithError(err).Error("Unable to report DMZ health to redis")
+	}
+}
+
+func (l *Reporter) ReportPrivate(ctx context.Context) {
+	_, err := l.redis.Set(ctx, l.privateReportKey(), fmt.Sprintf("healthy:%v", timeTag()), 0).Result()
+	if err != nil {
+		log.WithError(err).Error("Unable to report Private health to redis")
+	}
+}
+
+func (l *Reporter) dmzReportKey() string {
+	return fmt.Sprintf("dmz:%v", l.dyno)
+}
+
+func (l *Reporter) privateReportKey() string {
+	return fmt.Sprintf("private:%v", l.dyno)
+}
+
 func (l *Reporter) Start() {
 	ch := make(chan byte)
 
@@ -41,7 +63,7 @@ func (l *Reporter) consumer(ch chan byte) {
 	logger := log.WithField("at", "Reporter.consumer").WithField("dyno", l.dyno)
 	for _ = range ch {
 		logger.Infof("Reporting liveness")
-		_, err := l.redis.Set(ctx, l.livenessKey(), "healthy", 1*time.Minute).Result()
+		_, err := l.redis.Set(ctx, l.livenessKey(), fmt.Sprintf("healthy:%v", timeTag()), 1*time.Minute).Result()
 		if err != nil {
 			logger.WithError(err).Error("Error reporting liveness")
 			continue
@@ -58,4 +80,8 @@ func (l *Reporter) producer(ch chan byte) {
 		time.Sleep(time.Duration(l.intervalMS) * time.Millisecond)
 		ch <- 0
 	}
+}
+
+func timeTag() string {
+	return time.Now().Format(time.RFC3339)
 }

@@ -13,8 +13,9 @@ func RedisClient(config config.Config) *redis.Client {
 		log.WithError(err).Error("Unable to parse redis url")
 		os.Exit(1)
 	}
-
-	opts.TLSConfig.InsecureSkipVerify = true
+	if opts.TLSConfig != nil {
+		opts.TLSConfig.InsecureSkipVerify = true
+	}
 
 	return redis.NewClient(opts)
 }
