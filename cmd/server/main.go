@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/heroku/x/hmetrics/onload"
 	"os"
+	"sync"
 )
 
 func main() {
@@ -36,9 +37,21 @@ func main() {
 
 	livenessReporter.Start()
 	livenessChecker.Start()
-	go router.Run(":" + cfg.Port)
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		router.Run(":" + cfg.Port)
+	}()
 	privateIP := os.Getenv("HEROKU_PRIVATE_IP")
 	if privateIP != "" {
-		go router.Run(privateIP + ":7777")
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			router.Run(privateIP + ":7777")
+		}()
 	}
+	wg.Wait()
 }
