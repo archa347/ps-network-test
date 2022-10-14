@@ -83,10 +83,23 @@ func (c *Checker) CheckURL(ctx context.Context, url string, resultType string) e
 }
 
 func (c *Checker) getDynos(ctx context.Context) []string {
-	dynos, err := c.redis.SMembers(ctx, "dynos").Result()
-	if err != nil {
-		log.WithError(err).Warn("Unable to fetch dynos from redis")
+	dynos := make([]string, 0)
+
+	var cursor uint64 = 0
+	for {
+		var keys []string
+		var err error
+		keys, cursor, err = c.redis.Scan(ctx, cursor, "liveness:*", 10).Result()
+		if err != nil {
+			log.WithError(err).Warn("Unable to fetch dynos from redis")
+			break
+		}
+		if len(keys) == 0 {
+			break
+		}
+		dynos = append(dynos, keys...)
 	}
+
 	return dynos
 }
 
