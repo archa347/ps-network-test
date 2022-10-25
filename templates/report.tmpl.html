@@ -1,0 +1,53 @@
+<html>
+<head>
+    <title>Network Health Report</title>
+</head>
+<style>
+    table, th, td {
+        border: 1px solid black;
+        border-collapse: collapse;
+        padding: 3px;
+    }
+</style>
+<body>
+<div>
+    {{range .dynos}}
+    <div>
+        <h2>{{.Dyno}}</h2>
+        <div>
+            <h3>DMZ</h3>
+            <table>
+                {{range .DMZ}}
+                <tr><td style="background-color:{{if .Passed}}lightgreen{{else}}lightpink{{end}}">{{.Result}}</td></tr>
+                {{end}}
+            </table>
+            <h3>NAT</h3>
+            <table>
+                <tr>
+                    <th>Destination</th><th>Result</th>
+                </tr>
+                {{range .NAT}}
+                <tr>
+                    <td>{{.Dest}}</td>
+                    <td style="background-color:{{if .Passed}}lightgreen{{else}}lightpink{{end}}">{{.Result}}</td>
+                </tr>
+                {{end}}
+            </table>
+            <h3>Private</h3>
+            <table>
+                <tr>
+                    <th>Destination</th><th>Result</th>
+                </tr>
+                {{range .Private}}
+                <tr>
+                    <td>{{.Dest}}</td>
+                    <td style="background-color:{{if .Passed}}lightgreen{{else}}lightpink{{end}}">{{.Result}}</td>
+                </tr>
+                {{end}}
+            </table>
+        </div>
+    </div>
+    {{end}}
+</div>
+</body>
+</html>

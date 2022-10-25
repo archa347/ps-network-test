@@ -35,6 +35,10 @@ func main() {
 		livenessReporter.ReportDMZ(c)
 	})
 
+	router.GET("/report", func(c *gin.Context) {
+		c.HTML(200, "report.tmpl.html", livenessChecker.Report(c))
+	})
+
 	livenessReporter.Start()
 	livenessChecker.Start()
 

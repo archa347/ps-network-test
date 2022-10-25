@@ -9,6 +9,8 @@ import (
 	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 	"net/http"
+	"strings"
+	"time"
 )
 
 type Checker struct {
@@ -21,6 +23,22 @@ type Checker struct {
 	checkDMZCron     string
 }
 
+type Report struct {
+	Dyno    string
+	DMZ     []CheckReport
+	NAT     []CheckReport
+	Private []CheckReport
+}
+
+type CheckReport struct {
+	Dest   string
+	Result string
+}
+
+func (r *CheckReport) Passed() bool {
+	return strings.HasPrefix(r.Result, "pass") || strings.HasPrefix(r.Result, "healthy")
+}
+
 func NewChecker(cfg config.Config, red *redis.Client) *Checker {
 	return &Checker{
 		appName:          cfg.AppName,
@@ -31,6 +49,67 @@ func NewChecker(cfg config.Config, red *redis.Client) *Checker {
 		checkDMZCron:     cfg.DMZCheckCron,
 		checkNATCron:     cfg.NATCheckCron,
 	}
+}
+
+func (c *Checker) Report(ctx context.Context) map[string]interface{} {
+	dynos := c.getDynos(ctx)
+
+	var reports []Report
+	for _, dyno := range dynos {
+		reports = append(reports, c.dynoReport(ctx, dyno))
+	}
+
+	return map[string]interface{}{
+		"dynos": reports,
+	}
+}
+
+func (c *Checker) dynoReport(ctx context.Context, dynoID string) Report {
+	return Report{
+		Dyno:    dynoID,
+		DMZ:     c.dynoDMZReport(ctx, dynoID),
+		NAT:     c.dynoCheckReports(ctx, dynoID, "nat"),
+		Private: c.dynoCheckReports(ctx, dynoID, "private"),
+	}
+}
+
+func (c *Checker) dynoDMZReport(ctx context.Context, dynoID string) []CheckReport {
+	result, err := c.redis.Get(ctx, "dmz:"+dynoID).Result()
+	if err != nil {
+		log.WithError(err).Error("Unable to get dmz check report")
+		return []CheckReport{}
+	}
+	return []CheckReport{{
+		Result: result,
+	}}
+}
+
+func (c *Checker) dynoCheckReports(ctx context.Context, dynoID string, checkType string) []CheckReport {
+	var reports []CheckReport
+	var cursor uint64 = 0
+	for {
+		keys, cursor, err := c.redis.Scan(ctx, cursor, c.checkKeyPrefix(checkType, dynoID)+":dest:*", 10).Result()
+		if err != nil {
+			log.WithError(err).Warn("Unable to fetch results from redis")
+			break
+		}
+		values, err := c.redis.MGet(ctx, keys...).Result()
+		if err != nil {
+			log.WithError(err).Warn("Unable to fetch results from redis")
+			break
+		}
+		for i, value := range values {
+			reports = append(reports, CheckReport{
+				Dest:   strings.TrimPrefix(keys[i], c.checkKeyPrefix(checkType, dynoID)+":dest:"),
+				Result: fmt.Sprintf("%v", value),
+			})
+		}
+
+		if cursor == 0 {
+			break
+		}
+	}
+	return reports
 }
 
 func (c *Checker) CheckPrivate(ctx context.Context) {
@@ -53,7 +132,11 @@ func (c *Checker) CheckDMZ(ctx context.Context) {
 }
 
 func (c *Checker) checkKey(resultType string, url string) string {
-	return fmt.Sprintf("%v:src:%v:dest:%v", resultType, c.dyno, url)
+	return fmt.Sprintf("%v:dest:%v", c.checkKeyPrefix(resultType, c.dyno), url)
+}
+
+func (c *Checker) checkKeyPrefix(resultType string, dynoId string) string {
+	return fmt.Sprintf("%v:src:%v", resultType, dynoId)
 }
 
 func (c *Checker) CheckURL(ctx context.Context, url string, resultType string) error {
@@ -74,7 +157,7 @@ func (c *Checker) CheckURL(ctx context.Context, url string, resultType string) e
 	}
 	logger.WithField("result", result).Info()
 
-	_, err = c.redis.Set(ctx, c.checkKey(resultType, url), result, 0).Result()
+	_, err = c.redis.Set(ctx, c.checkKey(resultType, url), result, 10*time.Minute).Result()
 	if err != nil {
 		logger.WithError(err).Error("Unable to set check result")
 		return err
@@ -94,10 +177,13 @@ func (c *Checker) getDynos(ctx context.Context) []string {
 			log.WithError(err).Warn("Unable to fetch dynos from redis")
 			break
 		}
-		if len(keys) == 0 {
+		for _, key := range keys {
+			dynos = append(dynos, strings.TrimPrefix(key, "liveness:"))
+		}
+
+		if cursor == 0 {
 			break
 		}
-		dynos = append(dynos, keys...)
 	}
 
 	return dynos
@@ -105,6 +191,10 @@ func (c *Checker) getDynos(ctx context.Context) []string {
 
 func (c *Checker) getDMZURL() string {
 	return fmt.Sprintf("https://%v.herokuapp.com/dmz", c.appName)
+}
+
+func (l *Checker) dmzReportKey() string {
+	return fmt.Sprintf("dmz:%v", l.dyno)
 }
 
 func (c *Checker) getExternalURL(ctx context.Context) (string, error) {
