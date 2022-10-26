@@ -97,23 +97,21 @@ func (c *Checker) dynoCheckReports(ctx context.Context, dynoID string, checkType
 			break
 		}
 
-		if len(keys) == 0 {
-			continue
-		}
-
-		values, err := c.redis.MGet(ctx, keys...).Result()
-		if err != nil {
-			log.WithError(err).Warn("Unable to fetch results from redis")
-			break
-		}
-		for i, value := range values {
-			if value == nil {
-				continue
+		if len(keys) > 0 {
+			values, err := c.redis.MGet(ctx, keys...).Result()
+			if err != nil {
+				log.WithError(err).Warn("Unable to fetch results from redis")
+				break
 			}
-			reports = append(reports, CheckReport{
-				Dest:   strings.TrimPrefix(keys[i], c.checkKeyPrefix(checkType, dynoID)+":dest:"),
-				Result: fmt.Sprintf("%v", value),
-			})
+			for i, value := range values {
+				if value == nil {
+					continue
+				}
+				reports = append(reports, CheckReport{
+					Dest:   strings.TrimPrefix(keys[i], c.checkKeyPrefix(checkType, dynoID)+":dest:"),
+					Result: fmt.Sprintf("%v", value),
+				})
+			}
 		}
 
 		if cursor == 0 {
