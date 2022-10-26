@@ -88,7 +88,9 @@ func (c *Checker) dynoCheckReports(ctx context.Context, dynoID string, checkType
 	var reports []CheckReport
 	var cursor uint64 = 0
 	for {
-		keys, cursor, err := c.redis.Scan(ctx, cursor, c.checkKeyPrefix(checkType, dynoID)+":dest:*", 10).Result()
+		var keys []string
+		var err error
+		keys, cursor, err = c.redis.Scan(ctx, cursor, c.checkKeyPrefix(checkType, dynoID)+":dest:*", 10).Result()
 		if err != nil {
 			log.WithError(err).Warn("Unable to fetch results from redis")
 			break
