@@ -96,12 +96,20 @@ func (c *Checker) dynoCheckReports(ctx context.Context, dynoID string, checkType
 			log.WithError(err).Warn("Unable to fetch results from redis")
 			break
 		}
+
+		if len(keys) == 0 {
+			continue
+		}
+
 		values, err := c.redis.MGet(ctx, keys...).Result()
 		if err != nil {
 			log.WithError(err).Warn("Unable to fetch results from redis")
 			break
 		}
 		for i, value := range values {
+			if value == nil {
+				continue
+			}
 			reports = append(reports, CheckReport{
 				Dest:   strings.TrimPrefix(keys[i], c.checkKeyPrefix(checkType, dynoID)+":dest:"),
 				Result: fmt.Sprintf("%v", value),
